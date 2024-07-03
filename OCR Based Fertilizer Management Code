@@ -1,0 +1,135 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import easyocr
+import cv2
+import re
+
+# Define the parameters
+soil_types = ['Sandy', 'Loamy', 'Clay']
+crops = ['Wheat', 'Corn', 'Soybeans']
+traditional_efficiency = {
+    'Sandy': [65, 70, 60],
+    'Loamy': [75, 80, 70],
+    'Clay': [60, 65, 55]
+}
+ocr_efficiency = {
+    'Sandy': [85, 90, 80],
+    'Loamy': [90, 95, 85],
+    'Clay': [80, 85, 75]
+}
+cost_traditional = {
+    'Sandy': [150, 180, 160],
+    'Loamy': [170, 200, 180],
+    'Clay': [160, 190, 170]
+}
+cost_ocr = {
+    'Sandy': [120, 140, 130],
+    'Loamy': [140, 160, 150],
+    'Clay': [130, 150, 140]
+}
+
+# Function to display the image
+def display_image(image):
+    plt.imshow(image)
+    plt.axis('off')
+    plt.show()
+
+# Function to perform OCR and extract text
+def extract_text(image_path):
+    reader = easyocr.Reader(['en'])
+    results = reader.readtext(image_path)
+    return results
+
+# Function to filter and extract nutrient information
+def extract_nutrients(results):
+    nutrient_patterns = {
+        'Nitrogen': r'\b(Nitrogen|N)\b.*?\b(\d+)\b',
+        'Phosphorus': r'\b(Phosphorus|P)\b.*?\b(\d+)\b',
+        'Potassium': r'\b(Potassium|K)\b.*?\b(\d+)\b'
+    }
+    
+    nutrient_info = {}
+    for (bbox, text, prob) in results:
+        for nutrient, pattern in nutrient_patterns.items():
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                nutrient_info[nutrient] = match.group(2)
+    
+    return nutrient_info
+
+# Main function
+def main(image_path):
+    image = cv2.imread(image_path)
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    display_image(image_rgb)
+    
+    results = extract_text(image_path)
+    
+    print("OCR Results:")
+    for (bbox, text, prob) in results:
+        print(f'Text: {text}, Probability: {prob}')
+    
+    nutrient_info = extract_nutrients(results)
+    
+    print("\nExtracted Nutrient Information:")
+    for nutrient, value in nutrient_info.items():
+        print(f'{nutrient}: {value}')
+
+# Run the main function
+if __name__ == "__main__":
+    image_path = 'path_to_your_image.jpg'
+    main(image_path)
+
+    # Generate efficiency table
+    efficiency_table = pd.DataFrame({
+        'Soil Type': soil_types * 3,
+        'Crop': np.repeat(crops, 3),
+        'Traditional Method (%)': np.concatenate([traditional_efficiency[soil] for soil in soil_types]),
+        'OCR-Based Method (%)': np.concatenate([ocr_efficiency[soil] for soil in soil_types])
+    })
+    print("Nutrient Delivery Efficiency")
+    print(efficiency_table)
+
+    # Generate cost-effectiveness table
+    cost_table = pd.DataFrame({
+        'Soil Type': soil_types * 3,
+        'Crop': np.repeat(crops, 3),
+        'Traditional Method (Cost/acre)': np.concatenate([cost_traditional[soil] for soil in soil_types]),
+        'OCR-Based Method (Cost/acre)': np.concatenate([cost_ocr[soil] for soil in soil_types])
+    })
+    print("\nCost-Effectiveness")
+    print(cost_table)
+
+    # Plot crop yield comparison
+    plt.figure(figsize=(10, 5))
+    x = np.arange(len(crops) * len(soil_types))
+    width = 0.35
+
+    traditional_yield = np.concatenate([traditional_efficiency[soil] for soil in soil_types])
+    ocr_yield = np.concatenate([ocr_efficiency[soil] for soil in soil_types])
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    rects1 = ax.bar(x - width/2, traditional_yield, width, label='Traditional Method')
+    rects2 = ax.bar(x + width/2, ocr_yield, width, label='OCR-Based Method')
+
+    ax.set_xlabel('Crops by Soil Type')
+    ax.set_ylabel('Yield Efficiency (%)')
+    ax.set_title('Crop Yield Comparison')
+    ax.set_xticks(x)
+    ax.set_xticklabels([f'{crop} ({soil})' for soil in soil_types for crop in crops], rotation=45)
+    ax.legend()
+
+    fig.tight_layout()
+    plt.show()
+
+    # Plot environmental impact reduction
+    env_impact_reduction = [30, 35, 25]  # Example values for reduction in percentage
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(soil_types, env_impact_reduction, color='green')
+    ax.set_xlabel('Soil Type')
+    ax.set_ylabel('Environmental Impact Reduction (%)')
+    ax.set_title('Environmental Impact Reduction with OCR-Based Fertilizer Management')
+
+    plt.show()
